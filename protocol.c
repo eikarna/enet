@@ -1011,6 +1011,7 @@ static int
 enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
 {
     ENetProtocolHeader * header;
+    ENetNewProtocolHeader * newHeader;
     ENetProtocol * command;
     ENetPeer * peer;
     enet_uint8 * currentData;
@@ -1018,17 +1019,34 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
     enet_uint16 peerID, flags;
     enet_uint8 sessionID;
 
-    if (host -> receivedDataLength < (size_t) & ((ENetProtocolHeader *) 0) -> sentTime)
-      return 0;
+    if (host -> usingNewPacketForServer)
+    {
+      if (host -> receivedDataLength < (size_t) & ((ENetNewProtocolHeader *) 0) -> sentTime)
+        return 0;
+    }
+    else
+    {
+      if (host -> receivedDataLength < (size_t) & ((ENetProtocolHeader *) 0) -> sentTime)
+        return 0;
+    }
 
-    header = (ENetProtocolHeader *) host -> receivedData;
+    if (host -> usingNewPacketForServer)
+      newHeader = (ENetNewProtocolHeader *) host -> receivedData;
+    else
+      header = (ENetProtocolHeader *) host -> receivedData;
 
-    peerID = ENET_NET_TO_HOST_16 (header -> peerID);
+    if (host -> usingNewPacketForServer)
+      peerID = ENET_NET_TO_HOST_16 (newHeader -> peerID);
+    else
+      peerID = ENET_NET_TO_HOST_16 (header -> peerID);
     sessionID = (peerID & ENET_PROTOCOL_HEADER_SESSION_MASK) >> ENET_PROTOCOL_HEADER_SESSION_SHIFT;
     flags = peerID & ENET_PROTOCOL_HEADER_FLAG_MASK;
     peerID &= ~ (ENET_PROTOCOL_HEADER_FLAG_MASK | ENET_PROTOCOL_HEADER_SESSION_MASK);
 
-    headerSize = (flags & ENET_PROTOCOL_HEADER_FLAG_SENT_TIME ? sizeof (ENetProtocolHeader) : (size_t) & ((ENetProtocolHeader *) 0) -> sentTime);
+    if (host -> usingNewPacketForServer)
+      headerSize = (flags & ENET_PROTOCOL_HEADER_FLAG_SENT_TIME ? sizeof (ENetNewProtocolHeader) : (size_t) & ((ENetNewProtocolHeader *) 0) -> sentTime);
+    else
+      headerSize = (flags & ENET_PROTOCOL_HEADER_FLAG_SENT_TIME ? sizeof (ENetProtocolHeader) : (size_t) & ((ENetProtocolHeader *) 0) -> sentTime);
     if (host -> checksum != NULL)
       headerSize += sizeof (enet_uint32);
 
@@ -1065,7 +1083,10 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
         if (originalSize <= 0 || originalSize > sizeof (host -> packetData [1]) - headerSize)
           return 0;
 
-        memcpy (host -> packetData [1], header, headerSize);
+        if (host -> usingNewPacketForServer)
+          memcpy (host -> packetData [1], newHeader, headerSize);
+        else
+          memcpy (host -> packetData [1], header, headerSize);
         host -> receivedData = host -> packetData [1];
         host -> receivedDataLength = headerSize + originalSize;
     }
@@ -1132,7 +1153,10 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
        case ENET_PROTOCOL_COMMAND_CONNECT:
           if (peer != NULL)
             goto commandError;
-          peer = enet_protocol_handle_connect (host, header, command);
+          if (host -> usingNewPacketForServer)
+            peer = enet_protocol_handle_connect (host, *(ENetProtocolHeader **) &newHeader->peerID, command);
+          else
+            peer = enet_protocol_handle_connect (host, header, command);
           if (peer == NULL)
             goto commandError;
           break;
@@ -1199,7 +1223,10 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
            if (! (flags & ENET_PROTOCOL_HEADER_FLAG_SENT_TIME))
              break;
 
-           sentTime = ENET_NET_TO_HOST_16 (header -> sentTime);
+           if (host -> usingNewPacketForServer)
+             sentTime = ENET_NET_TO_HOST_16(newHeader -> sentTime);
+           else
+             sentTime = ENET_NET_TO_HOST_16(header -> sentTime);
 
            switch (peer -> state)
            {
@@ -1612,11 +1639,11 @@ enet_protocol_send_outgoing_commands (ENetHost * host, ENetEvent * event, int ch
     if (host -> usingNewPacket)
     {
       enet_uint16 port = host -> peers -> address . port;
-      enet_uint16 rand1 = enet_host_random (host) % (port + 1);
+      enet_uint16 randomAroundPort = enet_host_random (host) % (port + 1);
 
-      newHeader -> integrity[0] = ENET_HOST_TO_NET_16 (rand1);
-      newHeader -> integrity[1] = ENET_HOST_TO_NET_16 (rand1 ^ port);
-      newHeader -> integrity[2] = ENET_HOST_TO_NET_16 (enet_host_random (host) & 0x67DA | 0x9005);
+      newHeader -> integrity [0] = ENET_HOST_TO_NET_16 (randomAroundPort);
+      newHeader -> integrity [1] = ENET_HOST_TO_NET_16 (randomAroundPort ^ port);
+      newHeader -> integrity [2] = ENET_HOST_TO_NET_16 (enet_host_random (host) & 0x67DA | 0x9005);
     }
 
     for (int sendPass = 0, continueSending = 0; sendPass <= continueSending; ++ sendPass)
