@@ -1661,7 +1661,7 @@ enet_protocol_send_outgoing_commands (ENetHost * host, ENetEvent * event, int ch
         host -> headerFlags = 0;
         host -> commandCount = 0;
         host -> bufferCount = 1;
-        host -> packetSize = sizeof (ENetProtocolHeader);
+        host -> packetSize = packetSize;
 
         if (! enet_list_empty (& currentPeer -> acknowledgements))
           enet_protocol_send_acknowledgements (host, currentPeer);
@@ -1719,7 +1719,7 @@ enet_protocol_send_outgoing_commands (ENetHost * host, ENetEvent * event, int ch
             else
               header -> sentTime = ENET_HOST_TO_NET_16 (host -> serviceTime & 0xFFFF);
 
-            host -> buffers -> dataLength = sizeof (ENetProtocolHeader);
+            host -> buffers -> dataLength = packetSize;
         }
         else
         {
