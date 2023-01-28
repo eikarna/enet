@@ -1067,6 +1067,22 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
            (peer -> outgoingPeerID < ENET_PROTOCOL_MAXIMUM_PEER_ID &&
             sessionID != peer -> incomingSessionID))
          return 0;
+
+       if (host -> usingNewPacketForServer) {
+         enet_uint16 integrity [3];
+         integrity [0] = ENET_NET_TO_HOST_16 (newHeader -> integrity [0]);
+         integrity [1] = ENET_NET_TO_HOST_16 (newHeader -> integrity [1]);
+         integrity [2] = ENET_NET_TO_HOST_16 (newHeader -> integrity [2]);
+
+         if ((integrity [0] < 0 ||
+              integrity [0] > host -> address . port) ||
+             integrity [0] != (integrity [1] ^ host -> address . port) ||
+             host -> address . port != (integrity [0] ^ integrity [1]) ||
+             integrity [2] == peer -> nonce)
+           return 0;
+
+         peer -> nonce = integrity [2];
+       }
     }
  
     if (flags & ENET_PROTOCOL_HEADER_FLAG_COMPRESSED)
@@ -1628,8 +1644,8 @@ enet_protocol_send_outgoing_commands (ENetHost * host, ENetEvent * event, int ch
 {
     size_t packetSize = host -> usingNewPacket ? sizeof (ENetNewProtocolHeader) : sizeof (ENetProtocolHeader);
     enet_uint8 headerData[sizeof (ENetNewProtocolHeader) + sizeof (enet_uint32)];
-    ENetProtocolHeader * header = (ENetProtocolHeader*) headerData;
-    ENetNewProtocolHeader * newHeader = (ENetNewProtocolHeader*) headerData;
+    ENetProtocolHeader * header = (ENetProtocolHeader *) headerData;
+    ENetNewProtocolHeader * newHeader = (ENetNewProtocolHeader *) headerData;
     int sentLength = 0;
     size_t shouldCompress = 0;
     ENetList sentUnreliableCommands;
@@ -1724,9 +1740,9 @@ enet_protocol_send_outgoing_commands (ENetHost * host, ENetEvent * event, int ch
         else
         {
             if (host -> usingNewPacket)
-              host -> buffers -> dataLength = (size_t) & ((ENetNewProtocolHeader*)0) -> sentTime;
+              host -> buffers -> dataLength = (size_t) & ((ENetNewProtocolHeader *)0) -> sentTime;
             else
-              host -> buffers -> dataLength = (size_t) & ((ENetProtocolHeader*)0) -> sentTime;
+              host -> buffers -> dataLength = (size_t) & ((ENetProtocolHeader *)0) -> sentTime;
         }
 
         shouldCompress = 0;
