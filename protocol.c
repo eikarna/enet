@@ -1170,7 +1170,7 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
           if (peer != NULL)
             goto commandError;
           if (host -> usingNewPacketForServer)
-            peer = enet_protocol_handle_connect (host, *(ENetProtocolHeader **) &newHeader->peerID, command);
+            peer = enet_protocol_handle_connect (host, *(ENetProtocolHeader **) & newHeader -> peerID, command);
           else
             peer = enet_protocol_handle_connect (host, header, command);
           if (peer == NULL)
