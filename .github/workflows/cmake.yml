@@ -1,4 +1,9 @@
-on: [push, pull_request, workflow_dispatch]
+on: 
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+  - cron: "20 5 1,15 * *"
 
 name: CMake
 
@@ -12,10 +17,20 @@ jobs:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
         build_type: ["Debug", "Release"]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{ matrix.build_type }}      
+
+    - uses: softprops/action-gh-release@v2
+      with:
+        body: "Upstreamed to [ZTzTopia/ENet](https://github.com/ZTzTopia/ENet)"
+        token: ${{ secrets.PAT_GITHUB_TOKEN }}
+        tag_name: workflow_${{github.run_number}}
+        name: Release ${{github.run_number}}
+        make_latest: true
+        files: |
+           ${{github.workspace}}/build
