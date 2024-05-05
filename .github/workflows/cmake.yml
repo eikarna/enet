@@ -2,8 +2,6 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-  schedule:
-  - cron: "20 5 1,15 * *"
 
 name: CMake
 
