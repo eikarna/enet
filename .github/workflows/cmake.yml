@@ -15,20 +15,29 @@ jobs:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
         build_type: ["Debug", "Release"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@master
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{ matrix.build_type }}      
+      run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}      
 
-    - uses: softprops/action-gh-release@v2
+    - name: Archive Release
+      uses: thedoctor0/zip-release@0.7.5
+      with:
+        type: 'zip'
+        filename: 'Build.zip'
+        path: ${{ github.workspace }}
+        directory: ${{ github.workspace }}/build
+        
+    - name: Release to GitHub
+      uses: softprops/action-gh-release@v2
       with:
         body: "Upstreamed to [ZTzTopia/ENet](https://github.com/ZTzTopia/ENet)"
         token: ${{ secrets.PAT_GITHUB_TOKEN }}
-        tag_name: workflow_${{github.run_number}}
-        name: Release ${{github.run_number}}
+        tag_name: workflow_${{ github.run_number }}
+        name: Release ${{ matrix.os }} - ${{ github.run_number }}
         make_latest: true
         files: |
-           ${{github.workspace}}/build
+           ${{ github.workspace }}/Build.zip
